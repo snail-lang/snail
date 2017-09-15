@@ -13,6 +13,7 @@ pub struct ParserError {
     position: Option<TokenPosition>,
 }
 
+#[allow(dead_code)]
 impl ParserError {
     pub fn new(value: &str) -> ParserError {
         ParserError {

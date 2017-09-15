@@ -27,7 +27,6 @@ pub enum Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Str, Num, Bool, Any, Nil, Array(Rc<Type>), Undefined,
-    Fun(Rc<Vec<Type>>), Many(Rc<Type>),
 }
 
 #[allow(unused)]
