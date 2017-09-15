@@ -88,14 +88,14 @@ impl Parser {
             TokenType::Symbol => match self.traveler.current_content().as_str() {
                 "(" => {
                     self.traveler.next();
+                    
+                    if self.traveler.current_content() == ")" {
+                        return Err(ParserError::new_pos(self.traveler.current().position, &format!("illegal empty clause '()'")))
+                    }
 
                     let expr = self.expression()?;
                     
-                    println!("here: {:?}", self.traveler.current_content());
-                    
                     self.skip_whitespace()?;
-                    println!("here: {:?}", self.traveler.current_content());
-                    
                     self.traveler.expect_content(")")?;
                     self.traveler.next();
                     self.skip_whitespace()?;

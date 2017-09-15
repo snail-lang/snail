@@ -5,7 +5,7 @@ use snail::{Parser, Traveler};
 
 fn main() {
     let test = r#"
-(a) 1, 2, (3 + 4) 5
+t
     "#;
     
     let lexer = lexer(&mut test.chars());
