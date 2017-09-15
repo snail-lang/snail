@@ -57,8 +57,25 @@ impl Parser {
                 break
             }
         }
-        
+
         Ok(())
+    }
+    
+    pub fn arm(&mut self) -> ParserResult<Expression> {
+        self.traveler.expect_content("|")?;
+        self.traveler.next();
+
+        let mut params = Vec::new();
+        
+        while self.traveler.current_content() != "|" {
+            params.push(Rc::new(self.traveler.expect(TokenType::Identifier)?));
+            self.traveler.next();
+        }
+        self.traveler.next();
+        
+        let body = self.expression()?;
+        
+        Ok(Expression::Arm(params, Rc::new(body)))
     }
 
     pub fn term(&mut self) -> ParserResult<Expression> {
@@ -86,6 +103,26 @@ impl Parser {
                 a
             }
             TokenType::Symbol => match self.traveler.current_content().as_str() {
+                "{" => {
+                    self.traveler.next();
+                    
+                    if self.traveler.current_content() == "}" {
+                        return Err(ParserError::new_pos(self.traveler.current().position, &format!("illegal empty clause '{{}}'")))
+                    }
+
+                    let mut body = Vec::new();
+                    
+                    while self.traveler.current_content() != "}" {
+                        self.skip_whitespace()?;                        
+                        if self.traveler.current_content() == "|" {
+                            body.push(self.arm()?)
+                        }
+                    }
+                    
+                    self.traveler.next();
+                    
+                    Ok(Expression::Lambda(Some(Rc::new(body))))
+                },
                 "(" => {
                     self.traveler.next();
                     
@@ -94,7 +131,7 @@ impl Parser {
                     }
 
                     let expr = self.expression()?;
-                    
+
                     self.skip_whitespace()?;
                     self.traveler.expect_content(")")?;
                     self.traveler.next();
@@ -158,6 +195,7 @@ impl Parser {
                             self.traveler.next();
                             Ok(id)
                         },
+                        "}"       => Ok(id),
                         "("       => Ok(self.call(id)?),
                         "!"       => Ok(Expression::Call(Rc::new(id), Rc::new(vec!()))),
                         "="       => {                            
@@ -237,7 +275,7 @@ impl Parser {
                     Ok(Some(Statement::Expression(Rc::new(self.expression()?))))
                 }
             },
-            _ => Err(ParserError::new_pos(self.traveler.current().position, &format!("unexpected: {}", self.traveler.current_content()))),
+            _ => Ok(Some(Statement::Expression(Rc::new(self.expression()?)))),
         }
     }
     
@@ -273,6 +311,7 @@ impl Parser {
         }
 
         ex_stack.push(self.term()?);
+        self.traveler.prev();
 
         let mut done = false;
         while ex_stack.len() > 1 {
@@ -298,12 +337,14 @@ impl Parser {
                     });
 
                     ex_stack.push(self.term()?);
+                    self.traveler.prev();
                     op_stack.push((op, precedence));
 
                     continue
                 }
 
                 ex_stack.push(self.term()?);
+                self.traveler.prev();
                 op_stack.push((op, precedence));
             }
 
@@ -317,7 +358,7 @@ impl Parser {
             });
         }
         
-        //self.traveler.next();
+        self.traveler.next();
 
         Ok(ex_stack.pop().unwrap())
     }

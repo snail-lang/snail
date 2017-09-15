@@ -15,6 +15,8 @@ pub enum Expression {
         op:    Operand,
         right: Rc<Expression>,
     },
+    Arm(Vec<Rc<String>>, Rc<Expression>),
+    Lambda(Option<Rc<Vec<Expression>>>),
     Call(Rc<Expression>, Rc<Vec<Expression>>),
     EOF,
 }

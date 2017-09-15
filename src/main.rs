@@ -5,7 +5,10 @@ use snail::{Parser, Traveler};
 
 fn main() {
     let test = r#"
-t
+t := {
+    |x y| x + y
+    |x y z| x + y + c
+}
     "#;
     
     let lexer = lexer(&mut test.chars());
