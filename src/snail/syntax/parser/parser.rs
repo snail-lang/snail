@@ -125,6 +125,7 @@ impl Parser {
                             _ => Ok(Some(Statement::Definition(Some(t), Rc::new(id), None))),
                         }
                     } else if self.traveler.current_content() == "=" {
+                        self.traveler.next();
                         Ok(Some(Statement::Definition(None, Rc::new(id), Some(Rc::new(self.expression()?)))))
                     } else {
                         Err(ParserError::new_pos(self.traveler.current().position, &format!("expected '=' or type, found: {}", self.traveler.current_content())))

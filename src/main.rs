@@ -5,7 +5,7 @@ use snail::{Parser, Traveler};
 
 fn main() {
     let test = r#"
-a: num = 10
+a := 10
     "#;
     
     let lexer = lexer(&mut test.chars());
@@ -13,7 +13,8 @@ a: num = 10
     let traveler   = Traveler::new(lexer.collect());
     let mut parser = Parser::new(traveler);
     
-    for s in parser.parse() {
-        println!("{:#?}", s)
+    match parser.parse() {
+        Ok(n)  => println!("{:#?}", n),
+        Err(e) => println!("{}", e),
     }
 }
