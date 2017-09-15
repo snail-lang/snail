@@ -8,6 +8,8 @@ use std::rc::Rc;
 pub fn lexer(data: &mut Chars) -> Lexer {
     let tokenizer = Tokenizer::new(data);
     let mut lexer = Lexer::new(tokenizer);
+    
+    let eol = vec!["\n"].iter().map(|&x| x.to_string()).collect();
 
     let symbols = vec![
         "(",
@@ -23,7 +25,6 @@ pub fn lexer(data: &mut Chars) -> Lexer {
         "=",
         "..",
         ".",
-        "\n",
     ].iter().map(|&x| x.to_string()).collect();
 
     let operators = vec![
@@ -52,6 +53,7 @@ pub fn lexer(data: &mut Chars) -> Lexer {
         "false",
     ].iter().map(|&x| x.to_string()).collect();
 
+    let matcher_eol         = ConstantMatcher::new(TokenType::EOL, eol);
     let matcher_symbol         = ConstantMatcher::new(TokenType::Symbol, symbols);
     let matcher_operator       = ConstantMatcher::new(TokenType::Operator, operators);
     let matcher_boolean        = KeyMatcher::new(TokenType::BoolLiteral, boolean);
@@ -62,6 +64,7 @@ pub fn lexer(data: &mut Chars) -> Lexer {
     let matcher_identifier     = IdentifierMatcher {};
     let matcher_string_literal = StringLiteralMatcher {};
 
+    lexer.matchers_mut().push(Rc::new(matcher_eol));
     lexer.matchers_mut().push(Rc::new(matcher_whitespace));
     lexer.matchers_mut().push(Rc::new(matcher_symbol));
     lexer.matchers_mut().push(Rc::new(matcher_float_literal));

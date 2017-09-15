@@ -15,6 +15,7 @@ pub enum Expression {
         op:    Operand,
         right: Rc<Expression>,
     },
+    Call(Rc<Expression>, Rc<Vec<Expression>>),
     EOF,
 }
 
@@ -26,7 +27,7 @@ pub enum Statement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    Str, Num, Bool, Any, Nil, Array(Rc<Type>), Undefined,
+    Str, Num, Bool, Any, Array(Rc<Type>), Nil, Undefined,
 }
 
 #[allow(unused)]

@@ -1,7 +1,7 @@
 ## snail
 a function based object oriented language
 
-### variables
+#### variables
 
 ```
 a: num = 10 # explicit
