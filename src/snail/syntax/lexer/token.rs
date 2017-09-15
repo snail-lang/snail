@@ -11,6 +11,7 @@ pub enum TokenType {
     Identifier,
     Type,
     Whitespace,
+    EOL,
     EOF,
 }
 
