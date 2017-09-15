@@ -113,9 +113,11 @@ impl Parser {
                     let mut body = Vec::new();
                     
                     while self.traveler.current_content() != "}" {
-                        self.skip_whitespace()?;                        
+                        self.skip_whitespace()?;
                         if self.traveler.current_content() == "|" {
                             body.push(self.arm()?)
+                        } else {
+                            body.push(self.expression()?);
                         }
                     }
                     
@@ -213,7 +215,7 @@ impl Parser {
             _ => Err(ParserError::new_pos(self.traveler.current().position, &format!("unexpected: {}", self.traveler.current_content()))),
         }
     }
-    
+
     fn expression(&mut self) -> ParserResult<Expression> {
         self.skip_whitespace()?;
         
@@ -228,8 +230,6 @@ impl Parser {
             if self.traveler.current().token_type == TokenType::Operator {
                 return self.operation(expr)
             }
-            
-            self.traveler.prev();
         }
 
         Ok(expr)

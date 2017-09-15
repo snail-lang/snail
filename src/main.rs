@@ -5,12 +5,9 @@ use snail::{Parser, Traveler};
 
 fn main() {
     let test = r#"
-t := {
-    |x y| x + y
-    |x y z| x + y + c
-}
+t:= {1 + 1}
     "#;
-    
+
     let lexer = lexer(&mut test.chars());
 
     let traveler   = Traveler::new(lexer.collect());
