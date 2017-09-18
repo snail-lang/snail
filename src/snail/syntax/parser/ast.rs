@@ -61,6 +61,26 @@ impl Expression {
     
     pub fn lua(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Expression::Block(ref statements) => {
+                writeln!(f, "function(...) local __args = {{...}}")?;
+                let mut acc = 1;
+                for s in statements {
+                    if acc == statements.len() {
+                        match *s {
+                            Statement::Expression(ref e) => match **e {
+                                Expression::Arm(_, _) => (),
+                                _ => write!(f, "return ")?,
+                            },
+                            _ => (),
+                        }
+                    }
+
+                    acc += 1;
+                    s.lua(f)?;
+                    writeln!(f)?;
+                }
+                writeln!(f, "end")
+            }
             Expression::Number(ref n)     => write!(f, "{}", n),
             Expression::Str(ref n)        => write!(f, r#""{}""#, n),
             Expression::Bool(ref n)       => write!(f, "{}", n),
@@ -79,6 +99,46 @@ impl Expression {
                 }
 
                 write!(f, ")")
+            },
+            Expression::Arm(ref params, ref body) => {
+                writeln!(f, "if {} == #__args then", params.len())?;
+
+                let mut acc = 0usize;
+                for p in params {
+                    acc += 1;
+                    match **p {
+                        ref c @ Expression::Number(_) |
+                        ref c @ Expression::Bool(_) |
+                        ref c @ Expression::Operation { .. } |
+                        ref c @ Expression::Str(_) => {
+                            writeln!(f, "if {} == __args[{}] then", c, acc)?;
+                            match **body {
+                                Expression::Block(_) => (),
+                                _ => write!(f, "return ")?
+                            }
+                            writeln!(f, "{}", body)?;
+                            writeln!(f, "end")?;
+                            continue
+                        }
+                        
+                        ref c @ Expression::Identifier(_) => writeln!(f, "local {} = __args[{}]", c, acc)?,
+
+                        _ => ()
+                    }
+                    
+                    match **body {
+                        Expression::Block(_) => (),
+                        _ => write!(f, "return ")?
+                    } 
+                    writeln!(f, "{}", body)?;
+                }
+
+                writeln!(f, "end")
+            },
+            Expression::Operation {ref left, ref op, ref right,} => {
+                write!(f, "{}", left)?;
+                write!(f, " {} ", op)?;
+                write!(f, "{}", right)
             },
             _ => Ok(()),
         }

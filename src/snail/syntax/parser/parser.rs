@@ -17,10 +17,10 @@ impl Parser {
 
     pub fn parse(&mut self) -> ParserResult<Vec<Statement>> {
         let mut stack = Vec::new();
-        while self.traveler.remaining() > 2 {
+        while self.traveler.remaining() > 1 {
+            self.skip_whitespace()?;
             if let Some(s) = self.statement()? {
                 stack.push(s);
-                self.traveler.next();
             } else {
                 stack.push(Statement::Expression(Rc::new(self.expression()?)))
             }
@@ -171,7 +171,7 @@ impl Parser {
 
                                         return Ok(Expression::Assignment(Rc::new(expr), Rc::new(expr_right)))
                                     },
-                                    _   => return Err(ParserError::new_pos(self.traveler.current().position, &format!("unexpected symbol: {}", self.traveler.current_content()))),
+                                    _ => return Err(ParserError::new_pos(self.traveler.current().position, &format!("unexpected symbol: {}", self.traveler.current_content()))),
                                 }
                             }
                             let call = self.call(expr)?;
@@ -229,6 +229,7 @@ impl Parser {
     
     fn block(&mut self) -> ParserResult<Expression> {
         self.skip_whitespace()?;
+
         if self.traveler.current_content() == "}" {
             return Err(ParserError::new_pos(self.traveler.current().position, &format!("illegal empty clause '{{}}'")))
         }
@@ -236,13 +237,13 @@ impl Parser {
         let mut nests = 1;
         let mut body = Vec::new();
         
-        while self.traveler.remaining() > 2 {
+        while self.traveler.remaining() > 1 {            
             if self.traveler.current_content() == "{" {
                 nests += 1
             } else if self.traveler.current_content() == "}" {
-                nests += 1
+                nests -= 1
             }
-            
+
             if nests < 1 {
                 break
             }
@@ -251,10 +252,9 @@ impl Parser {
 
             self.traveler.next();
             self.skip_whitespace()?;
-        }
-
-        self.traveler.next();
+        } 
         
+        self.traveler.next();
         self.skip_whitespace()?;
         
         let traveler   = Traveler::new(body);
@@ -268,16 +268,15 @@ impl Parser {
         
         let expr = self.term()?;
         
+        if expr == Expression::EOF {
+            return Ok(expr)
+        }
+        
         match expr {
             Expression::Number(_) |
             Expression::Str(_)    |
-            Expression::Bool(_)   |
-            Expression::Identifier(_) => {self.traveler.next();},
+            Expression::Bool(_) => {self.traveler.next();},
             _ => (),
-        }
-
-        if expr == Expression::EOF {
-            return Ok(expr)
         }
 
         if self.traveler.remaining() > 1 {
@@ -339,6 +338,10 @@ impl Parser {
 
         while self.traveler.current_content() != ")" && self.traveler.current_content() != "}" && self.traveler.current_content() != "\n" {
             let expr = self.expression()?;
+            
+            if expr == Expression::EOF {
+                break
+            }
             
             args.push(expr);
 
