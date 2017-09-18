@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use super::*;
-use super::lexer::TokenType;
+use super::lexer::*;
 
 pub struct Parser {
     traveler: Traveler,
@@ -28,7 +28,7 @@ impl Parser {
 
         Ok(stack)
     }
-    
+
     fn types(&mut self) -> ParserResult<Option<Type>> {
         match self.traveler.current().token_type {
             TokenType::Type   => {
@@ -68,9 +68,14 @@ impl Parser {
         let mut params = Vec::new();
         
         while self.traveler.current_content() != "|" {
-            params.push(Rc::new(self.traveler.expect(TokenType::Identifier)?));
-            self.traveler.next();
+            self.skip_whitespace()?;
+            params.push(Rc::new(self.expression()?));
+
+            if self.traveler.remaining() < 2 {
+                break
+            }
         }
+
         self.traveler.next();
         
         let body = self.expression()?;
@@ -80,6 +85,10 @@ impl Parser {
 
     pub fn term(&mut self) -> ParserResult<Expression> {
         self.skip_whitespace()?;
+        
+        if self.traveler.remaining() < 2 {
+            return Ok(Expression::EOF)
+        }
         
         match self.traveler.current().token_type {
             TokenType::IntLiteral    => {
@@ -105,39 +114,20 @@ impl Parser {
             TokenType::Symbol => match self.traveler.current_content().as_str() {
                 "{" => {
                     self.traveler.next();
-                    
-                    if self.traveler.current_content() == "}" {
-                        return Err(ParserError::new_pos(self.traveler.current().position, &format!("illegal empty clause '{{}}'")))
-                    }
-
-                    let mut body = Vec::new();
-                    
-                    while self.traveler.current_content() != "}" {
-                        self.skip_whitespace()?;
-                        if self.traveler.current_content() == "|" {
-                            body.push(self.arm()?)
-                        } else {
-                            body.push(self.expression()?);
-                        }
-                    }
-                    
-                    self.traveler.next();
-                    
-                    Ok(Expression::Lambda(Some(Rc::new(body))))
+                    self.block()
                 },
+                "|" => self.arm(),
                 "(" => {
                     self.traveler.next();
-                    
                     if self.traveler.current_content() == ")" {
                         return Err(ParserError::new_pos(self.traveler.current().position, &format!("illegal empty clause '()'")))
                     }
-
+                    
                     let expr = self.expression()?;
 
                     self.skip_whitespace()?;
                     self.traveler.expect_content(")")?;
                     self.traveler.next();
-                    self.skip_whitespace()?;
 
                     match self.traveler.current().token_type {
                         TokenType::IntLiteral |
@@ -167,7 +157,7 @@ impl Parser {
                                 }
                             }
                             let call = self.call(expr)?;
-                            self.traveler.next();
+                            //self.traveler.next();
                             return Ok(call)
                         },
                         _ => (),
@@ -177,7 +167,7 @@ impl Parser {
                 },
                 _ => Err(ParserError::new_pos(self.traveler.current().position, &format!("unexpected symbol: {}", self.traveler.current_content()))),
             },
-            TokenType::Identifier    => {
+            TokenType::Identifier => {
                 let id = Expression::Identifier(Rc::new(self.traveler.current_content()));
                 self.traveler.next();
 
@@ -197,7 +187,7 @@ impl Parser {
                             self.traveler.next();
                             Ok(id)
                         },
-                        "}"       => Ok(id),
+                        "}" | "|" => Ok(id),
                         "("       => Ok(self.call(id)?),
                         "!"       => Ok(Expression::Call(Rc::new(id), Rc::new(vec!()))),
                         "="       => {                            
@@ -215,12 +205,33 @@ impl Parser {
             _ => Err(ParserError::new_pos(self.traveler.current().position, &format!("unexpected: {}", self.traveler.current_content()))),
         }
     }
+    
+    fn block(&mut self) -> ParserResult<Expression> {
+        if self.traveler.current_content() == "}" {
+            return Err(ParserError::new_pos(self.traveler.current().position, &format!("illegal empty clause '{{}}'")))
+        }
+
+        let mut body = Vec::new();
+        
+        while self.traveler.current_content() != "}" {
+            body.push(self.traveler.current().clone());
+            self.traveler.next();
+            self.skip_whitespace()?;
+        }
+        
+        body.push(Token::new(TokenType::EOL, TokenPosition::new(0, 0), "\n".to_owned()));
+        
+        let traveler   = Traveler::new(body);
+        let mut parser = Parser::new(traveler);
+        
+        Ok(Expression::Block(parser.parse()?))
+    }
 
     fn expression(&mut self) -> ParserResult<Expression> {
         self.skip_whitespace()?;
         
         let expr = self.term()?;
-
+        
         if expr == Expression::EOF {
             return Ok(expr)
         }
@@ -234,7 +245,7 @@ impl Parser {
 
         Ok(expr)
     }
-    
+
     pub fn statement(&mut self) -> ParserResult<Option<Statement>> {
         self.skip_whitespace()?;
         match self.traveler.current().token_type {
@@ -282,18 +293,12 @@ impl Parser {
     fn call(&mut self, caller: Expression) -> ParserResult<Expression> {
         let mut args = Vec::new();
 
-        while self.traveler.current_content() != ")" && self.traveler.current_content() != "\n" {
+        while self.traveler.current_content() != ")" && self.traveler.current_content() != "}" && self.traveler.current_content() != "\n" {
             args.push(try!(self.expression()));
-
-            self.traveler.next();
 
             if self.traveler.current_content() == "," {
                 self.traveler.next();
             }
-        }
-        
-        if self.traveler.current_content() == ")" {
-            self.traveler.next();
         }
         
         Ok(Expression::Call(Rc::new(caller), Rc::new(args)))
@@ -359,7 +364,7 @@ impl Parser {
         }
         
         self.traveler.next();
-
+        
         Ok(ex_stack.pop().unwrap())
     }
 }

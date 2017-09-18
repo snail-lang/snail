@@ -5,6 +5,7 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
+    Block(Vec<Statement>),
     Number(f64),
     Bool(bool),
     Str(Rc<String>),
@@ -15,7 +16,7 @@ pub enum Expression {
         op:    Operand,
         right: Rc<Expression>,
     },
-    Arm(Vec<Rc<String>>, Rc<Expression>),
+    Arm(Vec<Rc<Expression>>, Rc<Expression>),
     Lambda(Option<Rc<Vec<Expression>>>),
     Call(Rc<Expression>, Rc<Vec<Expression>>),
     EOF,
