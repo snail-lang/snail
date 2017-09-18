@@ -125,20 +125,22 @@ impl Expression {
 
                         _ => ()
                     }
-                    
-                    match **body {
-                        Expression::Block(_) => (),
-                        _ => write!(f, "return ")?
-                    } 
-                    writeln!(f, "{}", body)?;
                 }
+                
+                match **body {
+                    Expression::Block(_) => (),
+                    _ => write!(f, "return ")?
+                } 
+                writeln!(f, "{}", body)?;
 
                 writeln!(f, "end")
             },
             Expression::Operation {ref left, ref op, ref right,} => {
+                write!(f, "(")?;
                 write!(f, "{}", left)?;
                 write!(f, " {} ", op)?;
-                write!(f, "{}", right)
+                write!(f, "{}", right)?;
+                write!(f, ")")
             },
             _ => Ok(()),
         }
