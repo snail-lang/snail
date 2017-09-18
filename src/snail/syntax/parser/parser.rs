@@ -70,11 +70,39 @@ impl Parser {
         while self.traveler.current_content() != "|" {
             self.skip_whitespace()?;
             
-            let id = self.traveler.expect(TokenType::Identifier)?;
-            params.push(Rc::new(Expression::Identifier(Rc::new(id.to_owned()))));
+            println!("her: {}", self.traveler.current_content());
             
-            self.traveler.next();
-
+            let a = match self.traveler.current().token_type {
+                TokenType::IntLiteral    => {
+                    let a = Expression::Number(self.traveler.current_content().parse::<f64>().unwrap());
+                    self.traveler.next();
+                    a
+                }
+                TokenType::FloatLiteral  => {
+                    let a = Expression::Number(self.traveler.current_content().parse::<f64>().unwrap());
+                    self.traveler.next(); 
+                    a
+                }
+                TokenType::BoolLiteral   => {
+                    let a = Expression::Bool(self.traveler.current_content() == "true");
+                    self.traveler.next();
+                    a
+                }
+                TokenType::StringLiteral => {
+                    let a = Expression::Str(Rc::new(self.traveler.current_content().clone()));
+                    self.traveler.next();
+                    a
+                }
+                TokenType::Identifier => {
+                    let a = Expression::Identifier(Rc::new(self.traveler.current_content().clone()));
+                    self.traveler.next();
+                    a
+                }
+                _ => return Err(ParserError::new_pos(self.traveler.current().position, &format!("expected identifier, str, num or bool, found: {}", self.traveler.current_content())))
+            };
+            
+            params.push(Rc::new(a));
+            
             if self.traveler.remaining() < 2 {
                 break
             }

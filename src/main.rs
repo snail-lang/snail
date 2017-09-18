@@ -5,9 +5,10 @@ use snail::{Parser, Traveler};
 
 fn main() {
     let test = r#"
-when := {
-    |True body| body!
-    |False _|
+fib := {
+  |0| 1
+  |1| 1
+  |n| (fib n - 1) + fib n - 2
 }
     "#;
 
