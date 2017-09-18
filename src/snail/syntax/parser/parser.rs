@@ -69,7 +69,11 @@ impl Parser {
         
         while self.traveler.current_content() != "|" {
             self.skip_whitespace()?;
-            params.push(Rc::new(self.expression()?));
+            
+            let id = self.traveler.expect(TokenType::Identifier)?;
+            params.push(Rc::new(Expression::Identifier(Rc::new(id.to_owned()))));
+            
+            self.traveler.next();
 
             if self.traveler.remaining() < 2 {
                 break
@@ -170,7 +174,7 @@ impl Parser {
             TokenType::Identifier => {
                 let id = Expression::Identifier(Rc::new(self.traveler.current_content()));
                 self.traveler.next();
-
+                
                 match self.traveler.current().token_type {
                     TokenType::IntLiteral |
                     TokenType::FloatLiteral |
@@ -189,7 +193,10 @@ impl Parser {
                         },
                         "}" | "|" => Ok(id),
                         "("       => Ok(self.call(id)?),
-                        "!"       => Ok(Expression::Call(Rc::new(id), Rc::new(vec!()))),
+                        "!"       => {
+                            self.traveler.next();
+                            Ok(Expression::Call(Rc::new(id), Rc::new(vec!())))
+                        },
                         "="       => {                            
                             self.traveler.next();
                             let expr = self.expression()?;
@@ -218,6 +225,8 @@ impl Parser {
             self.traveler.next();
             self.skip_whitespace()?;
         }
+        
+        self.traveler.next();
         
         body.push(Token::new(TokenType::EOL, TokenPosition::new(0, 0), "\n".to_owned()));
         
