@@ -5,12 +5,7 @@ use snail::{Parser, Traveler};
 
 fn main() {
     let test = r#"
-newMonster := {
-    |name hitpoints| {
-        |Name| name
-        |Hurt damage| hitpoints = hitpoints + 1
-    }
-}
+a := {_ + 1}
     "#;
 
     let lexer = lexer(&mut test.chars());

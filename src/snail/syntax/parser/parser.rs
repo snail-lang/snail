@@ -244,7 +244,7 @@ impl Parser {
         if self.traveler.current_content() == "}" {
             return Err(ParserError::new_pos(self.traveler.current().position, &format!("illegal empty clause '{{}}'")))
         }
-        
+
         let mut nests = 1;
         let mut body = Vec::new();
         
