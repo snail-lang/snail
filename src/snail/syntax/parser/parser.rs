@@ -70,8 +70,6 @@ impl Parser {
         while self.traveler.current_content() != "|" {
             self.skip_whitespace()?;
             
-            println!("her: {}", self.traveler.current_content());
-            
             let a = match self.traveler.current().token_type {
                 TokenType::IntLiteral    => {
                     let a = Expression::Number(self.traveler.current_content().parse::<f64>().unwrap());
@@ -102,12 +100,12 @@ impl Parser {
             };
             
             params.push(Rc::new(a));
-            
+
             if self.traveler.remaining() < 2 {
                 break
             }
         }
-
+        
         self.traveler.next();
         
         let body = self.expression()?;
@@ -242,21 +240,34 @@ impl Parser {
     }
     
     fn block(&mut self) -> ParserResult<Expression> {
+        self.skip_whitespace()?;
         if self.traveler.current_content() == "}" {
             return Err(ParserError::new_pos(self.traveler.current().position, &format!("illegal empty clause '{{}}'")))
         }
-
+        
+        let mut nests = 1;
         let mut body = Vec::new();
         
-        while self.traveler.current_content() != "}" {
+        while self.traveler.remaining() > 2 {
+            if self.traveler.current_content() == "{" {
+                nests += 1
+            } else if self.traveler.current_content() == "}" {
+                nests += 1
+            }
+            
+            if nests < 1 {
+                break
+            }
+            
             body.push(self.traveler.current().clone());
+
             self.traveler.next();
             self.skip_whitespace()?;
         }
-        
+
         self.traveler.next();
         
-        body.push(Token::new(TokenType::EOL, TokenPosition::new(0, 0), "\n".to_owned()));
+        self.skip_whitespace()?;
         
         let traveler   = Traveler::new(body);
         let mut parser = Parser::new(traveler);

@@ -5,10 +5,11 @@ use snail::{Parser, Traveler};
 
 fn main() {
     let test = r#"
-fib := {
-  |0| 1
-  |1| 1
-  |n| (fib n - 1) + fib n - 2
+newMonster := {
+    |name hitpoints| {
+        |Name| name
+        |Hurt damage| hitpoints = hitpoints + 1
+    }
 }
     "#;
 
