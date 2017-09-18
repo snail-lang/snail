@@ -35,15 +35,7 @@ impl Parser {
                 let t = get_type(&self.traveler.current_content()).unwrap();
                 self.traveler.next();
 
-                match self.traveler.current_content().as_str() {
-                    ".." => {
-                        self.traveler.next();
-                        
-                        Ok(Some(Type::Array(Rc::new(t))))
-                    },
-
-                    _ => Ok(Some(t))
-                }
+                Ok(Some(t))
             },
             _ => Ok(None),
         }
@@ -123,22 +115,18 @@ impl Parser {
         match self.traveler.current().token_type {
             TokenType::IntLiteral    => {
                 let a = Ok(Expression::Number(self.traveler.current_content().parse::<f64>().unwrap()));
-                self.traveler.next();
                 a
             }
             TokenType::FloatLiteral  => {
                 let a = Ok(Expression::Number(self.traveler.current_content().parse::<f64>().unwrap()));
-                self.traveler.next(); 
                 a
             }
             TokenType::BoolLiteral   => {
                 let a = Ok(Expression::Bool(self.traveler.current_content() == "true"));
-                self.traveler.next();
                 a
             }
             TokenType::StringLiteral => {
                 let a = Ok(Expression::Str(Rc::new(self.traveler.current_content().clone())));
-                self.traveler.next();
                 a
             }
             TokenType::Symbol => match self.traveler.current_content().as_str() {
@@ -280,11 +268,19 @@ impl Parser {
         
         let expr = self.term()?;
         
+        match expr {
+            Expression::Number(_) |
+            Expression::Str(_)    |
+            Expression::Bool(_)   |
+            Expression::Identifier(_) => {self.traveler.next();},
+            _ => (),
+        }
+
         if expr == Expression::EOF {
             return Ok(expr)
         }
 
-        if self.traveler.remaining() > 0 {
+        if self.traveler.remaining() > 1 {
             self.skip_whitespace()?;
             if self.traveler.current().token_type == TokenType::Operator {
                 return self.operation(expr)
@@ -342,7 +338,9 @@ impl Parser {
         let mut args = Vec::new();
 
         while self.traveler.current_content() != ")" && self.traveler.current_content() != "}" && self.traveler.current_content() != "\n" {
-            args.push(try!(self.expression()));
+            let expr = self.expression()?;
+            
+            args.push(expr);
 
             if self.traveler.current_content() == "," {
                 self.traveler.next();
@@ -364,7 +362,6 @@ impl Parser {
         }
 
         ex_stack.push(self.term()?);
-        self.traveler.prev();
 
         let mut done = false;
         while ex_stack.len() > 1 {
@@ -390,14 +387,12 @@ impl Parser {
                     });
 
                     ex_stack.push(self.term()?);
-                    self.traveler.prev();
                     op_stack.push((op, precedence));
 
                     continue
                 }
 
                 ex_stack.push(self.term()?);
-                self.traveler.prev();
                 op_stack.push((op, precedence));
             }
 

@@ -1,11 +1,12 @@
-mod snail;
+use std::rc::Rc;
 
-use snail::lexer;
-use snail::{Parser, Traveler};
+mod snail;
+use snail::*;
 
 fn main() {
     let test = r#"
-a := {_ + 1}
+a: idc = 1 + 1
+b := a 1, 2
     "#;
 
     let lexer = lexer(&mut test.chars());
@@ -13,8 +14,28 @@ a := {_ + 1}
     let traveler   = Traveler::new(lexer.collect());
     let mut parser = Parser::new(traveler);
     
+    let symtab  = Rc::new(SymTab::new_global());
+    let typetab = Rc::new(TypeTab::new_global());
+    
     match parser.parse() {
-        Ok(n)  => println!("{:#?}", n),
+        Ok(n)  => {
+            for s in n.iter() {
+                match s.visit(&symtab, &typetab) {
+                    Ok(()) => (),
+                    Err(e) => {
+                        println!("{}", e);
+                        return
+                    },
+                }
+            }
+
+            println!("{:#?}", n);
+            
+            for s in n.iter() {
+                println!("{}", s)
+            }
+        },
+
         Err(e) => println!("{}", e),
     }
 }

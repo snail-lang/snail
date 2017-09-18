@@ -45,7 +45,7 @@ pub fn lexer(data: &mut Chars) -> Lexer {
     ].iter().map(|&x| x.to_string()).collect();
 
     let types = vec![
-        "num", "str", "hmm", "bool",
+        "num", "str", "idc", "bool",
     ].iter().map(|&x| x.to_string()).collect();
 
     let boolean = vec![
