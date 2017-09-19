@@ -18,26 +18,20 @@ fib := {
 }
 ```
 
-output
+### flow-control
 
 ```
-local fib = function(...) local __args = {...}
-if 1 == #__args then
-if 0 == __args[1] then
-return 0
-end
-end
+when := {
+  |true body| body!
+  |false _|
+}
+```
 
-if 1 == #__args then
-if 1 == __args[1] then
-return 1
-end
-end
-
-if 1 == #__args then
-local n = __args[1]
-return fib(n - 1) + fib(n - 2)
-end
-
-end
+```
+while := {
+  |condition body| when condition! {
+    body!
+    while condition, body
+  }
+}
 ```
