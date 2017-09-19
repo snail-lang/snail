@@ -17,3 +17,21 @@ fib := {
   |n| (fib n - 1) + fib n - 2
 }
 ```
+
+### flow-control
+
+```
+when := {
+  |true body| body!
+  |false _|
+}
+```
+
+```
+while := {
+  |condition body| when condition! {
+    body!
+    while condition, body
+  }
+}
+```
