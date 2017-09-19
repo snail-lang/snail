@@ -102,6 +102,15 @@ impl Expression {
             },
             Expression::Arm(ref params, ref body) => {
                 writeln!(f, "if {} == #__args then", params.len())?;
+                
+                let mut acc = 0usize;
+                for p in params {
+                    acc += 1;
+                    match **p {
+                        ref c @ Expression::Identifier(_) => writeln!(f, "local {} = __args[{}]", c, acc)?,
+                        _ => (),
+                    }
+                }
 
                 let mut acc = 0usize;
                 for p in params {
@@ -121,8 +130,6 @@ impl Expression {
                             continue
                         }
                         
-                        ref c @ Expression::Identifier(_) => writeln!(f, "local {} = __args[{}]", c, acc)?,
-
                         _ => ()
                     }
                 }

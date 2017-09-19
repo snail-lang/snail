@@ -5,10 +5,10 @@ use snail::*;
 
 fn main() {
     let test = r#"
-adder := {
-    |x y| x + y
-    |x y z| x + y + z
-}
+a: idc
+a 1, 2, 3
+
+b := 123
     "#;
 
     let lexer = lexer(&mut test.chars());

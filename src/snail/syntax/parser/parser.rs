@@ -19,11 +19,7 @@ impl Parser {
         let mut stack = Vec::new();
         while self.traveler.remaining() > 1 {
             self.skip_whitespace()?;
-            if let Some(s) = self.statement()? {
-                stack.push(s);
-            } else {
-                stack.push(Statement::Expression(Rc::new(self.expression()?)))
-            }
+            stack.push(self.statement()?);
         }
 
         Ok(stack)
@@ -189,7 +185,7 @@ impl Parser {
             TokenType::Identifier => {
                 let id = Expression::Identifier(Rc::new(self.traveler.current_content()));
                 self.traveler.next();
-                
+
                 if self.traveler.remaining() > 1 {
                     match self.traveler.current().token_type {
                         TokenType::IntLiteral |
@@ -198,17 +194,13 @@ impl Parser {
                         TokenType::StringLiteral |
                         TokenType::Identifier => {
                             let call = self.call(id)?;
-
+                            
                             Ok(call)
                         },
 
                         TokenType::Symbol => match self.traveler.current_content().as_str() {
-                            ")" | "," => {
-                                self.traveler.next();
-                                Ok(id)
-                            },
-                            "}" | "|" => Ok(id),
-                            "("       => Ok(self.call(id)?),
+                            "}" | "|" | "," | ")" => Ok(id),
+                            "(" | "{" => Ok(self.call(id)?),
                             "!"       => {
                                 self.traveler.next();
                                 
@@ -258,10 +250,9 @@ impl Parser {
 
             self.traveler.next();
             self.skip_whitespace()?;
-        } 
-        
+        }
+
         self.traveler.next();
-        self.skip_whitespace()?;
         
         let traveler   = Traveler::new(body);
         let mut parser = Parser::new(traveler);
@@ -273,7 +264,7 @@ impl Parser {
         self.skip_whitespace()?;
 
         let expr = self.term()?;
-        
+                
         if expr == Expression::EOF {
             return Ok(expr)
         }
@@ -290,12 +281,13 @@ impl Parser {
             if self.traveler.current().token_type == TokenType::Operator {
                 return self.operation(expr)
             }
+            println!("{:#?}", expr);
         }
 
         Ok(expr)
     }
 
-    pub fn statement(&mut self) -> ParserResult<Option<Statement>> {
+    pub fn statement(&mut self) -> ParserResult<Statement> {
         self.skip_whitespace()?;
         match self.traveler.current().token_type {
             TokenType::Symbol => match self.traveler.current_content().as_str() {
@@ -303,7 +295,7 @@ impl Parser {
                     self.traveler.next();
                     self.statement()
                 },
-                _ => Ok(None),
+                _ => Ok(Statement::Expression(Rc::new(self.expression()?))),
             },
             TokenType::Identifier => {
                 let id = self.traveler.current_content();
@@ -318,44 +310,58 @@ impl Parser {
                                 self.traveler.next();
                                 let expr = self.expression()?;
                                 
-                                Ok(Some(Statement::Definition(Some(t), Rc::new(id), Some(Rc::new(expr)))))
+                                Ok(Statement::Definition(Some(t), Rc::new(id), Some(Rc::new(expr))))
                             },
 
-                            _ => Ok(Some(Statement::Definition(Some(t), Rc::new(id), None))),
+                            _ => Ok(Statement::Definition(Some(t), Rc::new(id), None)),
                         }
                     } else if self.traveler.current_content() == "=" {
                         self.traveler.next();
-                        Ok(Some(Statement::Definition(None, Rc::new(id), Some(Rc::new(self.expression()?)))))
+                        Ok(Statement::Definition(None, Rc::new(id), Some(Rc::new(self.expression()?))))
                     } else {
                         Err(ParserError::new_pos(self.traveler.current().position, &format!("expected '=' or type, found: {}", self.traveler.current_content())))
                     }
 
                 } else {
                     self.traveler.prev();
-                    Ok(Some(Statement::Expression(Rc::new(self.expression()?))))
+                    Ok(Statement::Expression(Rc::new(self.expression()?)))
                 }
             },
-            _ => Ok(Some(Statement::Expression(Rc::new(self.expression()?)))),
+            _ => Ok(Statement::Expression(Rc::new(self.expression()?))),
         }
     }
-    
+
     fn call(&mut self, caller: Expression) -> ParserResult<Expression> {
         let mut args = Vec::new();
-
-        while self.traveler.current_content() != ")" && self.traveler.current_content() != "}" && self.traveler.current_content() != "\n" {
-            let expr = self.expression()?;
-            
-            if expr == Expression::EOF {
-                break
-            }
-            
-            args.push(expr);
-
+        
+        let mut acc = 0;
+        while self.traveler.current_content() != "\n" {
             if self.traveler.current_content() == "," {
                 self.traveler.next();
-            }
-        }
+                
+                let expr = self.expression()?;
+                
+                if expr == Expression::EOF {
+                    break
+                }
 
+                args.push(expr);
+            } else if acc == 0 {
+                
+                let expr = self.expression()?;
+                
+                if expr == Expression::EOF {
+                    break
+                }
+                
+                args.push(expr);
+            } else {
+                self.traveler.prev();
+            }
+            
+            acc += 1;
+        }
+        
         Ok(Expression::Call(Rc::new(caller), Rc::new(args)))
     }
     

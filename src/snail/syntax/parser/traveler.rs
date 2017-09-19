@@ -56,7 +56,7 @@ impl Traveler {
         if self.current().token_type == token {
             Ok(self.current_content())
         } else {
-            Err(ParserError::new(&format!("expected '{:?}', found '{}'", token, self.current_content())))
+            Err(ParserError::new_pos(self.current().position, &format!("expected '{:?}', found '{}'", token, self.current_content())))
         }
     }
 
@@ -64,7 +64,7 @@ impl Traveler {
         if &self.current_content() == content {
             Ok(self.current_content())
         } else {
-            Err(ParserError::new(&format!("expected '{}', found '{}'", content, self.current_content())))
+            Err(ParserError::new_pos(self.current().position, &format!("expected '{}', found '{}'", content, self.current_content())))
         }
     }
 
