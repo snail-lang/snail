@@ -281,7 +281,6 @@ impl Parser {
             if self.traveler.current().token_type == TokenType::Operator {
                 return self.operation(expr)
             }
-            println!("{:#?}", expr);
         }
 
         Ok(expr)
@@ -357,6 +356,10 @@ impl Parser {
                 args.push(expr);
             } else {
                 self.traveler.prev();
+                if self.traveler.current_content() != "!" || self.traveler.current_content() != "," {
+                    self.traveler.next();
+                }
+                break
             }
             
             acc += 1;

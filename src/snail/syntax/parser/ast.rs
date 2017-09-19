@@ -84,7 +84,19 @@ impl Expression {
             Expression::Number(ref n)     => write!(f, "{}", n),
             Expression::Str(ref n)        => write!(f, r#""{}""#, n),
             Expression::Bool(ref n)       => write!(f, "{}", n),
-            Expression::Identifier(ref n) => write!(f, "{}", n),
+            Expression::Identifier(ref n) => {
+                match n.as_str() {
+                    "while"  |
+                    "if"     |
+                    "else"   |
+                    "elseif" |
+                    "do"     |
+                    "local"  |
+                    "then" => write!(f, "_")?,
+                    _ => (),
+                }
+                write!(f, "{}", n)
+            },
             Expression::Call(ref id, ref args) => {
                 write!(f, "{}", id)?;
                 write!(f, "(")?;
@@ -233,7 +245,7 @@ impl fmt::Display for Statement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    Str, Num, Bool, Any, Nil, Undefined,
+    Str, Num, Bool, Any, Undefined,
 }
 
 #[allow(unused)]

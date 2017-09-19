@@ -5,10 +5,17 @@ use snail::*;
 
 fn main() {
     let test = r#"
-a: idc
-a 1, 2, 3
+when := {
+  |true body| body!
+  |false _|
+}    
 
-b := 123
+while := {
+  |condition body| when condition!, {
+    body 1
+    while condition, body
+  }
+}
     "#;
 
     let lexer = lexer(&mut test.chars());
