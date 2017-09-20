@@ -8,7 +8,7 @@ fn main() {
 when := {
   |true body| body!
   |false _|
-}    
+}
 
 while := {
   |condition body| when condition!, {

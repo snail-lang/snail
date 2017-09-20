@@ -92,10 +92,10 @@ impl Expression {
                     "elseif" |
                     "do"     |
                     "local"  |
-                    "then" => write!(f, "_")?,
-                    _ => (),
+                    "end"    |
+                    "then" => write!(f, "_{}", n),
+                    _      => write!(f, "{}", n),
                 }
-                write!(f, "{}", n)
             },
             Expression::Call(ref id, ref args) => {
                 write!(f, "{}", id)?;
@@ -229,9 +229,23 @@ impl Statement {
     pub fn lua(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Expression(ref e) => write!(f, "{}", e),
-            Statement::Definition(_, ref id, ref e) => match *e {
-                Some(ref e) => write!(f, "local {} = {}", id, e),
-                None        => write!(f, "local {}", id),
+            Statement::Definition(_, ref id, ref e) => {
+                let id = match id.as_str() {
+                    "while"  |
+                    "if"     |
+                    "else"   |
+                    "elseif" |
+                    "do"     |
+                    "local"  |
+                    "end"   |
+                    "then" => format!("_{}", id),
+                    _      => format!("{}", id),
+                };
+
+                match *e {
+                    Some(ref e) => write!(f, "local {} = {}", id, e),
+                    None        => write!(f, "local {}", id),
+                }
             },
         }
     }
