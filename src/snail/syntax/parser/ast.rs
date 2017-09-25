@@ -47,9 +47,34 @@ impl Expression {
     
     pub fn visit(&self, sym: &Rc<SymTab>, env: &Rc<TypeTab>) -> ParserResult<()> {
         match *self {
+            Expression::Block(ref statements) => {
+                for s in statements {
+                    s.visit(&sym, &env)?
+                }
+                Ok(())
+            },
             Expression::Identifier(ref id) => match sym.get_name(&*id) {
                 Some(_) => Ok(()),
                 None    => Err(ParserError::new(&format!("{}: undeclared", id))),
+            },
+            Expression::Arm(ref params, ref body) => {
+                let mut param_names = Vec::new();
+                let mut param_types = Vec::new();
+
+                for p in params {
+                    match **p {
+                        Expression::Identifier(ref n) => {
+                            param_types.push(Type::Any);
+                            param_names.push(n.clone())
+                        },
+                        _ => (),
+                    }
+                }
+              
+                let local_sym = Rc::new(SymTab::new(sym.clone(), param_names.as_slice()));
+                let local_env = Rc::new(TypeTab::new(env.clone(), &param_types));
+
+                body.visit(&local_sym, &local_env)
             },
             Expression::Operation {ref left, ref op, ref right} => {
                 left.visit(&sym, &env)?;
@@ -115,42 +140,37 @@ impl Expression {
             Expression::Arm(ref params, ref body) => {
                 writeln!(f, "if {} == #__args then", params.len())?;
                 
-                let mut acc = 0usize;
+                let mut acc  = 0usize;
+                let mut flag = true;
                 for p in params {
                     acc += 1;
                     match **p {
                         ref c @ Expression::Identifier(_) => writeln!(f, "local {} = __args[{}]", c, acc)?,
-                        _ => (),
-                    }
-                }
+                        _ => match **p {
+                            ref c @ Expression::Number(_) |
+                            ref c @ Expression::Bool(_) |
+                            ref c @ Expression::Operation { .. } |
+                            ref c @ Expression::Str(_) => {
+                                flag = false;
 
-                let mut acc = 0usize;
-                for p in params {
-                    acc += 1;
-                    match **p {
-                        ref c @ Expression::Number(_) |
-                        ref c @ Expression::Bool(_) |
-                        ref c @ Expression::Operation { .. } |
-                        ref c @ Expression::Str(_) => {
-                            writeln!(f, "if {} == __args[{}] then", c, acc)?;
-                            match **body {
-                                Expression::Block(_) => (),
-                                _ => write!(f, "return ")?
+                                writeln!(f, "if {} == __args[{}] then", c, acc)?;
+                                match **body {
+                                    Expression::Block(_) => (),
+                                    _ => write!(f, "return ")?
+                                }
+                                writeln!(f, "{}", body)?;
+                                writeln!(f, "end")?;
+                                continue
                             }
-                            writeln!(f, "{}", body)?;
-                            writeln!(f, "end")?;
-                            continue
+                            
+                            _ => (),
                         }
-                        
-                        _ => ()
                     }
                 }
                 
-                match **body {
-                    Expression::Block(_) => (),
-                    _ => write!(f, "return ")?
-                } 
-                writeln!(f, "{}", body)?;
+                if flag {
+                    writeln!(f, "return {}", body)?;
+                }
 
                 writeln!(f, "end")
             },
@@ -237,13 +257,13 @@ impl Statement {
                     "elseif" |
                     "do"     |
                     "local"  |
-                    "end"   |
+                    "end"    |
                     "then" => format!("_{}", id),
                     _      => format!("{}", id),
                 };
 
                 match *e {
-                    Some(ref e) => write!(f, "local {} = {}", id, e),
+                    Some(ref e) => write!(f, "{} = {}", id, e),
                     None        => write!(f, "local {}", id),
                 }
             },
@@ -291,6 +311,7 @@ pub enum Operand {
     Equal, NEqual,
     Lt, Gt, LtEqual, GtEqual,
     And, Or, Not,
+    Append,
 }
 
 impl Operand {
@@ -303,7 +324,7 @@ impl Operand {
                 (Type::Str, Type::Num) => Ok(Type::Str),
                 (Type::Str, Type::Any) => Ok(Type::Any),
                 (Type::Any, Type::Any) => Ok(Type::Any),
-                (a, b) => Err(ParserError::new(&format!("failed to pow: {:?} and {:?}", a, b))),
+                (a, b)                 => Err(ParserError::new(&format!("failed to pow: {:?} and {:?}", a, b))),
             },
 
             Operand::Mul => match lr {
@@ -313,7 +334,7 @@ impl Operand {
                 (Type::Str, Type::Num)  => Ok(Type::Str),
                 (Type::Str, Type::Str)  => Ok(Type::Str),
                 (Type::Any, Type::Any)  => Ok(Type::Any),
-                (a, b) => Err(ParserError::new(&format!("failed to multiply: {:?} and {:?}", a, b))),
+                (a, b)                  => Err(ParserError::new(&format!("failed to multiply: {:?} and {:?}", a, b))),
             },
 
             Operand::Div => match lr {
@@ -321,7 +342,7 @@ impl Operand {
                 (Type::Any, Type::Num)  => Ok(Type::Any),
                 (Type::Num, Type::Any)  => Ok(Type::Any),
                 (Type::Any, Type::Any)  => Ok(Type::Any),
-                (a, b) => Err(ParserError::new(&format!("failed to divide: {:?} and {:?}", a, b))),
+                (a, b)                  => Err(ParserError::new(&format!("failed to divide: {:?} and {:?}", a, b))),
             },
 
             Operand::Mod => match lr {
@@ -329,7 +350,7 @@ impl Operand {
                 (Type::Any, Type::Num)  => Ok(Type::Any),
                 (Type::Num, Type::Any)  => Ok(Type::Any),
                 (Type::Any, Type::Any)  => Ok(Type::Any),
-                (a, b) => Err(ParserError::new(&format!("failed to mod: {:?} and {:?}", a, b))),
+                (a, b)                  => Err(ParserError::new(&format!("failed to mod: {:?} and {:?}", a, b))),
             },
 
             Operand::Add => match lr {
@@ -340,7 +361,7 @@ impl Operand {
                 (Type::Str, Type::Str)  => Ok(Type::Str),
                 (Type::Str, Type::Bool) => Ok(Type::Str),
                 (Type::Any, Type::Any)  => Ok(Type::Any),
-                (a, b) => Err(ParserError::new(&format!("failed to add: {:?} and {:?}", a, b))),
+                (a, b)                  => Err(ParserError::new(&format!("failed to add: {:?} and {:?}", a, b))),
             },
 
             Operand::Sub => match lr {
@@ -350,7 +371,17 @@ impl Operand {
                 (Type::Str, Type::Num)  => Ok(Type::Str),
                 (Type::Str, Type::Str)  => Ok(Type::Str),
                 (Type::Any, Type::Any)  => Ok(Type::Any),
-                (a, b) => Err(ParserError::new(&format!("failed to subtract: {:?} and {:?}", a, b))),
+                (a, b)                  => Err(ParserError::new(&format!("failed to subtract: {:?} and {:?}", a, b))),
+            },
+            
+            Operand::Append => match lr {
+                (Type::Num, Type::Num)  => Ok(Type::Str),
+                (Type::Any, Type::Num)  => Ok(Type::Str),
+                (Type::Num, Type::Any)  => Ok(Type::Str),
+                (Type::Str, _)          => Ok(Type::Str),
+                (Type::Any, Type::Str)  => Ok(Type::Str),
+                (Type::Any, Type::Any)  => Ok(Type::Any),
+                (a, b)                  => Err(ParserError::new(&format!("failed to append: {:?} and {:?}", a, b))),
             },
 
             Operand::Equal | Operand::NEqual => Ok(Type::Bool),
@@ -360,7 +391,7 @@ impl Operand {
                 (a @ _, b @ Type::Bool) => Err(ParserError::new(&format!("failed to '{:?} < {:?}'", a, b))),
                 (a @ Type::Str, b @ _)  => Err(ParserError::new(&format!("failed to '{:?} < {:?}'", a, b))),
                 (a @ _, b @ Type::Str)  => Err(ParserError::new(&format!("failed to '{:?} < {:?}'", a, b))),
-                _ => Ok(Type::Bool),
+                _                       => Ok(Type::Bool),
             },
 
             Operand::And | Operand::Or | Operand::Not => Ok(Type::Bool),
@@ -384,6 +415,7 @@ impl Operand {
             Operand::And     => write!(f, "and"),
             Operand::Or      => write!(f, "or"),
             Operand::Not     => write!(f, "not"),
+            Operand::Append  => write!(f, ".."),
         }
     }
 }
@@ -411,6 +443,7 @@ pub fn get_operand(v: &str) -> Option<(Operand, u8)> {
         "!"   => Some((Operand::Not, 4)),
         "and" => Some((Operand::And, 4)),
         "or"  => Some((Operand::Or, 4)),
+        "++"  => Some((Operand::Append, 4)),
         _ => None,
     }
 }
