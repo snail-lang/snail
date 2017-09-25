@@ -71,16 +71,18 @@ impl Tokenizer {
     }
 
     pub fn advance(&mut self, a: usize) {
-        for item in &self.items[self.index..self.index+a] {
-            match *item {
-                '\n' => {
-                    self.pos.line += 1;
-                    self.pos.col = 0;
+        if self.index + a <= self.items.len() {
+            for item in &self.items[self.index .. self.index + a] {
+                match *item {
+                    '\n' => {
+                        self.pos.line += 1;
+                        self.pos.col = 0;
+                    }
+                    _ => self.pos.col += 1
                 }
-                _ => self.pos.col += 1
             }
+            self.index += a
         }
-        self.index += a;
     }
 
     pub fn take_snapshot(&mut self) {

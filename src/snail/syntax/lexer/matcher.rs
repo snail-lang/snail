@@ -156,7 +156,7 @@ impl Matcher for StringLiteralMatcher {
                 _ => return None,
             },
             _ => return None,
-        }.expect("Invalid delimiter");
+        }.expect("invalid delimiter");
         tokenizer.advance(1); // Skips the opening delimeter
         let mut string       = String::new();
         let mut found_escape = false;
@@ -165,22 +165,40 @@ impl Matcher for StringLiteralMatcher {
                 break
             }
             if raw_marker {
-                let c = *tokenizer.peek().unwrap();
-                if c == delimeter {
-                    break
+                if found_escape {
+                    match tokenizer.next().unwrap() {
+                        c @ '\\' | c @ '\'' | c @ '"' => {
+                            string.push_str("\\\\");
+                            string.push(c)
+                        },
+                        'n' => string.push_str("\\\\n"),
+                        'r' => string.push_str("\\\\r"),
+                        't' => string.push_str("\\\\t"),
+                        s => panic!("unwanted character escape: {}", s),
+                    }
+                    found_escape = false
+                } else {
+                    match tokenizer.peek().unwrap() {
+                        &'\\' => {
+                            tokenizer.next();
+                            found_escape = true
+                        },
+                        &c if &c == &delimeter => break,
+                        _ => string.push(tokenizer.next().unwrap()),
+                    }
                 }
-                string.push(tokenizer.next().unwrap())
             } else {
                 if found_escape {
-                    string.push(
-                        match tokenizer.next().unwrap() {
-                            c @ '\\' | c @ '\'' | c @ '"' => c,
-                            'n' => '\n',
-                            'r' => '\r',
-                            't' => '\t',
-                            s => panic!("unwanted character escape: {}", s),
+                    match tokenizer.next().unwrap() {
+                        c @ '\\' | c @ '\'' | c @ '"' => {
+                            string.push('\\');
+                            string.push(c)
                         }
-                    );
+                        'n' => string.push_str("\\n"),
+                        'r' => string.push_str("\\r"),
+                        't' => string.push_str("\\t"),
+                        s => panic!("unwanted character escape: {}", s),
+                    }
                     found_escape = false
                 } else {
                     match tokenizer.peek().unwrap() {

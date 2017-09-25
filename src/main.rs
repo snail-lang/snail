@@ -160,7 +160,8 @@ fn write(path: &str, data: Rc<String>) {
 }
 
 fn execute(data: Rc<String>) {
-
+    println!("{}\n", data);
+    
     let mut lua = Lua::new();
     
     fn print(a: String) {
@@ -227,8 +228,8 @@ fn main() {
                     }
                 )
             },
-            _   => execute_path(&a),
+            _ => execute_path(&a),
         },
-        None => repl(),
+        None => println!("repl is wip"),
     }
 }

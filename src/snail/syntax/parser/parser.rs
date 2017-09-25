@@ -192,8 +192,8 @@ impl Parser {
                         TokenType::BoolLiteral |
                         TokenType::StringLiteral |
                         TokenType::Identifier => {
-                            let call = self.call(id)?;                                                        
-                            
+                            let call = self.call(id)?;
+
                             Ok(call)
                         },
 

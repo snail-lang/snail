@@ -1,9 +1,19 @@
+if := {
+  |true body| body!
+}
+
 prompt := {
   |question| {
-    print "question
+    print question
     read!
   }
 }
 
-identity := prompt "who are you?"
-print identity!
+who      := prompt "who are you?"
+identity := who!
+
+print identity
+
+if identity == "niels\n", {
+  print 10
+}

@@ -42,7 +42,7 @@ impl Expression {
                     let ref t = **t;
                     Ok(t.clone())
                 },
-                t                  => Err(ParserError::new(&format!("{:?}: can't call {:?}", id, t))),
+                t                  => Err(ParserError::new(&format!("{}: can't call {:?}", id, t))),
             },
             Expression::Operation { ref left, ref op, ref right, } => Ok(op.operate((left.get_type(sym, env)?, right.get_type(sym, env)?))?),
             Expression::Block(ref statements) => {
@@ -58,6 +58,25 @@ impl Expression {
                 }
                 
                 Err(ParserError::new(&format!("missing return value")))
+            }
+            Expression::Arm(ref params, ref body) => {
+                let mut param_names = Vec::new();
+                let mut param_types = Vec::new();
+
+                for p in params {
+                    match **p {
+                        Expression::Identifier(ref n) => {
+                            param_types.push(Type::Any);
+                            param_names.push(n.clone())
+                        },
+                        _ => (),
+                    }
+                }
+              
+                let local_sym = Rc::new(SymTab::new(sym.clone(), param_names.as_slice()));
+                let local_env = Rc::new(TypeTab::new(env.clone(), &param_types));
+
+                body.get_type(&local_sym, &local_env)
             }
             _ => Ok(Type::Undefined),
         }
@@ -161,30 +180,39 @@ impl Expression {
                 writeln!(f, "if {} == #__args then", params.len())?;
                 
                 let mut acc  = 0usize;
+
+                for p in params {
+                    acc += 1;
+    
+                    match **p {
+                        ref c @ Expression::Identifier(_) => writeln!(f, "local {} = __args[{}]", c, acc)?,
+                        _ => (),
+                    }
+                }
+                
+                let mut acc  = 0usize;
                 let mut flag = true;
+
                 for p in params {
                     acc += 1;
                     match **p {
-                        ref c @ Expression::Identifier(_) => writeln!(f, "local {} = __args[{}]", c, acc)?,
-                        _ => match **p {
-                            ref c @ Expression::Number(_) |
-                            ref c @ Expression::Bool(_) |
-                            ref c @ Expression::Operation { .. } |
-                            ref c @ Expression::Str(_) => {
-                                flag = false;
+                        ref c @ Expression::Number(_) |
+                        ref c @ Expression::Bool(_) |
+                        ref c @ Expression::Operation { .. } |
+                        ref c @ Expression::Str(_) => {
+                            flag = false;
 
-                                writeln!(f, "if {} == __args[{}] then", c, acc)?;
-                                match **body {
-                                    Expression::Block(_) => (),
-                                    _ => write!(f, "return ")?
-                                }
-                                writeln!(f, "{}", body)?;
-                                writeln!(f, "end")?;
-                                continue
+                            writeln!(f, "if {} == __args[{}] then", c, acc)?;
+                            match **body {
+                                Expression::Block(_) => (),
+                                _ => write!(f, "return ")?
                             }
-                            
-                            _ => (),
+                            writeln!(f, "{}", body)?;
+                            writeln!(f, "end")?;
+                            continue
                         }
+                        
+                        _ => (),
                     }
                 }
                 
