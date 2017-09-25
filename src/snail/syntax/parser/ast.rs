@@ -37,14 +37,32 @@ impl Expression {
             },
             Expression::Assignment(ref id, _) => id.get_type(&sym, &env),
             Expression::Call(ref id, _) => match id.get_type(sym, env)? {
-                Type::Any => Ok(Type::Any),
-                _         => Err(ParserError::new(&format!("{:?}: can't call non-fun", id))),
+                Type::Any          => Ok(Type::Any),
+                Type::Block(ref t) => {
+                    let ref t = **t;
+                    Ok(t.clone())
+                },
+                t                  => Err(ParserError::new(&format!("{:?}: can't call {:?}", id, t))),
             },
             Expression::Operation { ref left, ref op, ref right, } => Ok(op.operate((left.get_type(sym, env)?, right.get_type(sym, env)?))?),
+            Expression::Block(ref statements) => {
+                let mut acc = 1;
+                for s in statements {
+                    if acc == statements.len() {
+                        match *s {
+                            Statement::Expression(ref e) => return Ok(Type::Block(Rc::new(e.get_type(&sym, &env)?))),
+                            _                            => return Err(ParserError::new(&format!("missing return value"))),
+                        }
+                    }
+                    acc += 1
+                }
+                
+                Err(ParserError::new(&format!("missing return value")))
+            }
             _ => Ok(Type::Undefined),
         }
     }
-    
+
     pub fn visit(&self, sym: &Rc<SymTab>, env: &Rc<TypeTab>) -> ParserResult<()> {
         match *self {
             Expression::Block(ref statements) => {
@@ -76,6 +94,7 @@ impl Expression {
 
                 body.visit(&local_sym, &local_env)
             },
+            Expression::Assignment(_, ref r) => { r.visit(&sym, &env) },
             Expression::Operation {ref left, ref op, ref right} => {
                 left.visit(&sym, &env)?;
                 right.visit(&sym, &env)
@@ -122,6 +141,7 @@ impl Expression {
                     _      => write!(f, "{}", n),
                 }
             },
+            Expression::Assignment(ref a, ref b) => write!(f, "{} = {}", a, b),
             Expression::Call(ref id, ref args) => {
                 write!(f, "{}", id)?;
                 write!(f, "(")?;
@@ -263,8 +283,8 @@ impl Statement {
                 };
 
                 match *e {
-                    Some(ref e) => write!(f, "{} = {}", id, e),
-                    None        => write!(f, "local {}", id),
+                    Some(ref e) => writeln!(f, "{} = {}", id, e),
+                    None        => writeln!(f, "local {}", id),
                 }
             },
         }
@@ -279,7 +299,7 @@ impl fmt::Display for Statement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    Str, Num, Bool, Any, Undefined,
+    Str, Num, Bool, Any, Undefined, Block(Rc<Type>),
 }
 
 #[allow(unused)]

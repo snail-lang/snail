@@ -95,7 +95,6 @@ impl Parser {
         }
         
         self.traveler.next();
-        
         let body = self.expression()?;
         
         Ok(Expression::Arm(params, Rc::new(body)))
@@ -185,7 +184,7 @@ impl Parser {
             TokenType::Identifier => {
                 let id = Expression::Identifier(Rc::new(self.traveler.current_content()));
                 self.traveler.next();
-
+                
                 if self.traveler.remaining() > 1 {
                     match self.traveler.current().token_type {
                         TokenType::IntLiteral |
@@ -193,7 +192,7 @@ impl Parser {
                         TokenType::BoolLiteral |
                         TokenType::StringLiteral |
                         TokenType::Identifier => {
-                            let call = self.call(id)?;
+                            let call = self.call(id)?;                                                        
                             
                             Ok(call)
                         },
@@ -249,7 +248,6 @@ impl Parser {
             body.push(self.traveler.current().clone());
 
             self.traveler.next();
-            self.skip_whitespace()?;
         }
 
         self.traveler.next();
@@ -332,27 +330,26 @@ impl Parser {
 
     fn call(&mut self, caller: Expression) -> ParserResult<Expression> {
         let mut args = Vec::new();
-        
+
         let mut acc = 0;
         while self.traveler.current_content() != "\n" {
             if self.traveler.current_content() == "," {
                 self.traveler.next();
                 
                 let expr = self.expression()?;
-                
+
                 if expr == Expression::EOF {
                     break
                 }
 
                 args.push(expr);
             } else if acc == 0 {
-                
                 let expr = self.expression()?;
                 
                 if expr == Expression::EOF {
                     break
                 }
-                
+
                 args.push(expr);
             } else {
                 self.traveler.prev();

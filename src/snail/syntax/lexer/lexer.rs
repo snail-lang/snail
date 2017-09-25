@@ -114,7 +114,13 @@ impl Iterator for Lexer {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
-        let token = self.match_token().unwrap();
+        let token = match self.match_token() {
+            Some(n) => n,
+            None    => {
+                println!("invalid token");
+                return None
+            },
+        };
         match token.token_type {
             TokenType::EOF => None,
             TokenType::Whitespace => {

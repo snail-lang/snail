@@ -1,7 +1,9 @@
-menu := {
-  |1| "pizza"
-  |2| "burger w chicks"
-  |n| n ++ " doesn't exist"
+prompt := {
+  |question| {
+    print "question
+    read!
+  }
 }
 
-print menu 10
+identity := prompt "who are you?"
+print identity!

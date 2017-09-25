@@ -6,6 +6,9 @@ use rustyline::error::ReadlineError;
 
 use std::rc::Rc;
 
+use std::io;
+use std::io::BufRead;
+
 mod snail;
 use snail::*;
 
@@ -32,7 +35,8 @@ fn add_global(sym: &SymTab, env: &TypeTab, name: &str, t: Type) {
 }
 
 fn add_lua_standard(sym: &SymTab, env: &TypeTab) {
-    add_global(sym, env, "print", Type::Any);
+    add_global(sym, env, "print",    Type::Any);
+    add_global(sym, env, "read",     Type::Any);
     add_global(sym, env, "tostring", Type::Any);
 }
 
@@ -40,8 +44,10 @@ fn write_path(path: &str) {
     let meta = metadata(path).unwrap();
     
     if meta.is_file() {
-        let output = file(path);
-        write(path, output)
+        match file(path) {
+            Some(n) => write(path, n),
+            None    => (),
+        }
     } else {
         let paths = fs::read_dir(path).unwrap();
 
@@ -59,21 +65,24 @@ fn write_path(path: &str) {
     }
 }
 
-fn execute_path(path: &str) {
-    let meta = metadata(path).unwrap();
+fn execute_path(path_str: &str) {
+    let meta = metadata(path_str).unwrap();
 
     if meta.is_file() {
-        let output = file(path);
-        let path = Path::new(path);
+        
+        let path = Path::new(path_str);
         println!("executing: {}", path.display());
 
-        execute(output)
+        match file(path_str) {
+            Some(n) => execute(n),
+            None    => (),
+        }
     } else {
-        println!("{}: can't execute folder", path)
+        println!("{}: can't execute folder", path_str)
     }
 }
 
-fn file(path: &str) -> Rc<String> {
+fn file(path: &str) -> Option<Rc<String>> {
     let path = Path::new(path);
     let display = path.display();
 
@@ -86,15 +95,13 @@ fn file(path: &str) -> Rc<String> {
 
     match file.read_to_string(&mut s) {
         Err(why) => panic!("failed to read {}: {}", display,  why.description()),
-        Ok(_)    => {
-            transpile(&mut s.chars())
-        }
+        Ok(_)    => transpile(&mut s.chars()),
     }
 }
 
-fn transpile(s: &mut Chars) -> Rc<String> {
+fn transpile(s: &mut Chars) -> Option<Rc<String>> {
     let lexer = lexer(s);
-    
+
     let traveler   = Traveler::new(lexer.collect());
     let mut parser = Parser::new(traveler);
     
@@ -122,10 +129,10 @@ fn transpile(s: &mut Chars) -> Rc<String> {
                 output.push_str(&format!("{}", s))
             }
             
-            return Rc::new(output)
+            return Some(Rc::new(output))
         },
     }
-    Rc::new(String::new())
+    None
 }
 
 fn write(path: &str, data: Rc<String>) {
@@ -159,8 +166,17 @@ fn execute(data: Rc<String>) {
     fn print(a: String) {
         println!("{}", a)
     }
+    
+    fn read() -> String {
+        let mut line = String::new();
+        let stdin    = io::stdin();
+        
+        stdin.lock().read_line(&mut line).unwrap();
+        line
+    }
 
     lua.set("print", hlua::function1(print));
+    lua.set("read",  hlua::function0(read));
     
     match lua.execute::<()>(&data) {
         Ok(_)    => (),
@@ -175,7 +191,10 @@ fn repl() {
         let readline = rl.readline(">");
 
         match readline {
-            Ok(line) => execute(transpile(&mut line.chars())),
+            Ok(line) => match transpile(&mut line.chars()) {
+                Some(n) => execute(n),
+                None    => (),
+            },
             Err(ReadlineError::Interrupted) => {
                 println!("interrupted");
                 break

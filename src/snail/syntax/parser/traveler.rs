@@ -17,6 +17,7 @@ impl Traveler {
     }
 
     pub fn next(&mut self) -> bool {
+        
         if self.top < self.tokens.len() {
             self.top += 1;
             return true
