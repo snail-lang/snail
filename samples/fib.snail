@@ -9,11 +9,17 @@ prompt := {
   }
 }
 
-who      := prompt "who are you?"
-identity := who!
-
-print identity
-
-if identity == "niels\n", {
-  print 10
+respond := {
+  |"niels"| "yes ok hello"
+  |n|       "u r not cool, " ++ n
 }
+
+game := {
+  who      := prompt "who are you?"
+  identity := trim who!
+
+  print respond identity
+  game!
+}
+
+game!

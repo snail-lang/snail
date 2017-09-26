@@ -35,9 +35,10 @@ fn add_global(sym: &SymTab, env: &TypeTab, name: &str, t: Type) {
 }
 
 fn add_lua_standard(sym: &SymTab, env: &TypeTab) {
-    add_global(sym, env, "print",    Type::Any);
-    add_global(sym, env, "read",     Type::Any);
-    add_global(sym, env, "tostring", Type::Any);
+    add_global(sym, env, "print",    Type::Block(Rc::new(Type::Any)));
+    add_global(sym, env, "read",     Type::Block(Rc::new(Type::Str)));
+    add_global(sym, env, "trim",     Type::Block(Rc::new(Type::Str)));
+    add_global(sym, env, "tostring", Type::Block(Rc::new(Type::Str)));
 }
 
 fn write_path(path: &str) {
@@ -69,10 +70,6 @@ fn execute_path(path_str: &str) {
     let meta = metadata(path_str).unwrap();
 
     if meta.is_file() {
-        
-        let path = Path::new(path_str);
-        println!("executing: {}", path.display());
-
         match file(path_str) {
             Some(n) => execute(n),
             None    => (),
@@ -160,12 +157,14 @@ fn write(path: &str, data: Rc<String>) {
 }
 
 fn execute(data: Rc<String>) {
-    println!("{}\n", data);
-    
     let mut lua = Lua::new();
     
     fn print(a: String) {
         println!("{}", a)
+    }
+    
+    fn trim(a: String) -> String {
+        a.trim().to_owned()
     }
     
     fn read() -> String {
@@ -177,6 +176,7 @@ fn execute(data: Rc<String>) {
     }
 
     lua.set("print", hlua::function1(print));
+    lua.set("trim",  hlua::function1(trim));
     lua.set("read",  hlua::function0(read));
     
     match lua.execute::<()>(&data) {

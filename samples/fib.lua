@@ -20,9 +20,27 @@ end
 
 end
 
-who = prompt("who are you?")
-identity = who()
-print(identity)_if((identity == "niels\n"),function(...) local __args = {...}
-return print(10)
+respond = function(...) local __args = {...}
+if 1 == #__args then
+if "niels\n" == __args[1] then
+return "yes ok hello\n"
 end
-)
+end
+
+if 1 == #__args then
+local n = __args[1]
+return ("u r not cool, " .. n)
+end
+
+end
+
+game = function(...) local __args = {...}
+who = prompt("who are you?")
+
+identity = who()
+
+print(respond(identity))
+return game()
+end
+
+game()

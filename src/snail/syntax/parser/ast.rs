@@ -37,20 +37,23 @@ impl Expression {
             },
             Expression::Assignment(ref id, _) => id.get_type(&sym, &env),
             Expression::Call(ref id, _) => match id.get_type(sym, env)? {
-                Type::Any          => Ok(Type::Any),
+                Type::Any | Type::Undefined => Ok(Type::Any),
                 Type::Block(ref t) => {
                     let ref t = **t;
                     Ok(t.clone())
                 },
-                t                  => Err(ParserError::new(&format!("{}: can't call {:?}", id, t))),
+                t => Err(ParserError::new(&format!("{}: can't call {:?}", id, t))),
             },
             Expression::Operation { ref left, ref op, ref right, } => Ok(op.operate((left.get_type(sym, env)?, right.get_type(sym, env)?))?),
             Expression::Block(ref statements) => {
+                let local_sym = Rc::new(SymTab::new(sym.clone(), &[]));
+                let local_env = Rc::new(TypeTab::new(env.clone(), &Vec::new()));
+
                 let mut acc = 1;
                 for s in statements {
                     if acc == statements.len() {
                         match *s {
-                            Statement::Expression(ref e) => return Ok(Type::Block(Rc::new(e.get_type(&sym, &env)?))),
+                            Statement::Expression(ref e) => return Ok(Type::Block(Rc::new(e.get_type(&local_sym, &local_env)?))),
                             _                            => return Err(ParserError::new(&format!("missing return value"))),
                         }
                     }
@@ -72,7 +75,7 @@ impl Expression {
                         _ => (),
                     }
                 }
-              
+
                 let local_sym = Rc::new(SymTab::new(sym.clone(), param_names.as_slice()));
                 let local_env = Rc::new(TypeTab::new(env.clone(), &param_types));
 
@@ -246,13 +249,17 @@ pub enum Statement {
     Expression(Rc<Expression>),
 }
 
+#[allow(dead_code)]
 impl Statement {
     pub fn visit(&self, sym: &Rc<SymTab>, env: &Rc<TypeTab>) -> ParserResult<()> {
         match *self {
             Statement::Expression(ref e) => e.visit(sym, env),
             Statement::Definition(ref t, ref id, ref e) => {
                 if let &Some(ref expr) = e {
-                    expr.visit(sym, env)?;
+                    let index = sym.add_name(&id);
+                    if index >= env.size() {
+                        env.grow();
+                    }
 
                     let tp = match *t {
                         Some(ref tt) => {
@@ -264,27 +271,11 @@ impl Statement {
                         },
                         None => expr.get_type(sym, env)?,
                     };
-                    
-                    match sym.get_name(&id) {
-                        Some((i, env_index)) => {
-                            match env.get_type(i, env_index) {
-                                Ok(tp2) => if !tp2.compare(&tp) {
-                                    return Err(ParserError::new(&format!("{}: can't mutate type", id)))
-                                },
-                                Err(e) => return Err(ParserError::new(&format!("{}", e))),
-                            }
-                        },
-                        None => (),
-                    }
-                
-                    let index = sym.add_name(&id);
-                    if index >= env.size() {
-                        env.grow();
-                    }
-                    
+
                     if let Err(e) = env.set_type(index, 0, tp) {
                         Err(ParserError::new(&format!("error setting type: {}", e)))
                     } else {
+                        expr.visit(sym, env)?;
                         Ok(())
                     }
                 } else {
